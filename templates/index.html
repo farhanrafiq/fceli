@@ -7,7 +7,7 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 800px;
+            max-width: 1000px;
             margin: 0 auto;
             padding: 20px;
             background-color: #f5f5f5;
@@ -21,6 +21,7 @@
         h1 {
             color: #333;
             text-align: center;
+            margin-bottom: 30px;
         }
         textarea {
             width: 100%;
@@ -29,6 +30,7 @@
             border-radius: 5px;
             font-size: 14px;
             resize: vertical;
+            box-sizing: border-box;
         }
         .controls {
             margin: 15px 0;
@@ -45,11 +47,17 @@
             margin-bottom: 5px;
             font-weight: bold;
         }
-        input[type="number"], input[type="range"] {
+        input[type="number"], input[type="range"], select {
             width: 100%;
             padding: 5px;
             border: 1px solid #ddd;
             border-radius: 3px;
+            box-sizing: border-box;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
         }
         button {
             background-color: #007bff;
@@ -59,8 +67,7 @@
             border-radius: 5px;
             cursor: pointer;
             font-size: 16px;
-            width: 100%;
-            margin-top: 10px;
+            flex: 1;
         }
         button:hover {
             background-color: #0056b3;
@@ -69,6 +76,12 @@
             background-color: #6c757d;
             cursor: not-allowed;
         }
+        .compare-btn {
+            background-color: #28a745;
+        }
+        .compare-btn:hover {
+            background-color: #218838;
+        }
         .result {
             margin-top: 20px;
             padding: 15px;
@@ -76,6 +89,28 @@
             white-space: pre-wrap;
             background-color: #f8f9fa;
             border-left: 4px solid #007bff;
+        }
+        .comparison-result {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .model-output {
+            flex: 1;
+            padding: 15px;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+            border-left: 4px solid #007bff;
+        }
+        .model-output h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .llama-output {
+            border-left-color: #007bff;
+        }
+        .deepseek-output {
+            border-left-color: #17a2b8;
         }
         .error {
             border-left-color: #dc3545;
@@ -86,11 +121,24 @@
             text-align: center;
             color: #007bff;
         }
+        .model-status {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Hybrid Llama-DeepSeek Model</h1>
+        <h1>🤖 Hybrid Llama-DeepSeek Model Interface</h1>
+        
+        <div id="modelStatus" class="model-status">
+            Loading models...
+        </div>
+        
         <form id="generateForm">
             <div>
                 <label for="prompt">Enter your prompt:</label>
@@ -98,6 +146,14 @@
             </div>
             
             <div class="controls">
+                <div class="control-group">
+                    <label for="modelType">Select Model:</label>
+                    <select id="modelType" name="modelType">
+                        <option value="llama">Llama Model</option>
+                        <option value="deepseek">DeepSeek Model</option>
+                        <option value="both">Both Models</option>
+                    </select>
+                </div>
                 <div class="control-group">
                     <label for="maxTokens">Max Tokens:</label>
                     <input type="number" id="maxTokens" name="maxTokens" value="50" min="1" max="200">
@@ -109,18 +165,42 @@
                 </div>
             </div>
             
-            <button type="submit" id="generateBtn">Generate Text</button>
+            <div class="button-group">
+                <button type="submit" id="generateBtn">Generate Text</button>
+                <button type="button" id="compareBtn" class="compare-btn">Compare Models</button>
+            </div>
         </form>
         
         <div id="result" class="result" style="display: none;"></div>
+        <div id="comparisonResult" class="comparison-result" style="display: none;"></div>
     </div>
 
     <script>
         const form = document.getElementById('generateForm');
         const resultDiv = document.getElementById('result');
+        const comparisonDiv = document.getElementById('comparisonResult');
         const generateBtn = document.getElementById('generateBtn');
+        const compareBtn = document.getElementById('compareBtn');
         const temperatureSlider = document.getElementById('temperature');
         const tempValue = document.getElementById('tempValue');
+        const modelStatus = document.getElementById('modelStatus');
+
+        // Load available models on page load
+        async function loadModels() {
+            try {
+                const response = await fetch('/models');
+                const data = await response.json();
+                if (data.success) {
+                    modelStatus.textContent = `Available models: ${data.models.join(', ')}`;
+                } else {
+                    modelStatus.textContent = 'Error loading models: ' + data.error;
+                    modelStatus.className = 'model-status error';
+                }
+            } catch (error) {
+                modelStatus.textContent = 'Failed to load models: ' + error.message;
+                modelStatus.className = 'model-status error';
+            }
+        }
 
         temperatureSlider.addEventListener('input', function() {
             tempValue.textContent = this.value;
@@ -133,15 +213,81 @@
             const prompt = formData.get('prompt');
             const maxTokens = parseInt(formData.get('maxTokens'));
             const temperature = parseFloat(formData.get('temperature'));
+            const modelType = formData.get('modelType');
             
             generateBtn.disabled = true;
+            compareBtn.disabled = true;
             generateBtn.textContent = 'Generating...';
+            
+            // Hide comparison and show single result
+            comparisonDiv.style.display = 'none';
             resultDiv.style.display = 'block';
             resultDiv.className = 'result loading';
             resultDiv.textContent = 'Generating response...';
             
             try {
                 const response = await fetch('/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        max_tokens: maxTokens,
+                        temperature: temperature,
+                        model_type: modelType
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.className = 'result';
+                    if (data.model_used === 'both') {
+                        let output = '';
+                        Object.entries(data.results).forEach(([model, result]) => {
+                            output += `=== ${model.toUpperCase()} MODEL ===\n${result}\n\n`;
+                        });
+                        resultDiv.textContent = output;
+                    } else {
+                        resultDiv.textContent = `[${data.model_used.toUpperCase()}] ${data.result}`;
+                    }
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = 'Error: ' + data.error;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = 'Network error: ' + error.message;
+            } finally {
+                generateBtn.disabled = false;
+                compareBtn.disabled = false;
+                generateBtn.textContent = 'Generate Text';
+            }
+        });
+
+        compareBtn.addEventListener('click', async function() {
+            const formData = new FormData(form);
+            const prompt = formData.get('prompt');
+            const maxTokens = parseInt(formData.get('maxTokens'));
+            const temperature = parseFloat(formData.get('temperature'));
+            
+            if (!prompt.trim()) {
+                alert('Please enter a prompt first.');
+                return;
+            }
+            
+            generateBtn.disabled = true;
+            compareBtn.disabled = true;
+            compareBtn.textContent = 'Comparing...';
+            
+            // Hide single result and show comparison
+            resultDiv.style.display = 'none';
+            comparisonDiv.style.display = 'flex';
+            comparisonDiv.innerHTML = '<div class="loading">Comparing models...</div>';
+            
+            try {
+                const response = await fetch('/compare', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -156,20 +302,31 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    resultDiv.className = 'result';
-                    resultDiv.textContent = data.result;
+                    let html = '';
+                    Object.entries(data.comparison).forEach(([model, result]) => {
+                        const className = model === 'llama' ? 'llama-output' : 'deepseek-output';
+                        html += `
+                            <div class="model-output ${className}">
+                                <h3>${model.charAt(0).toUpperCase() + model.slice(1)} Model</h3>
+                                <div>${result}</div>
+                            </div>
+                        `;
+                    });
+                    comparisonDiv.innerHTML = html;
                 } else {
-                    resultDiv.className = 'result error';
-                    resultDiv.textContent = 'Error: ' + data.error;
+                    comparisonDiv.innerHTML = `<div class="result error">Error: ${data.error}</div>`;
                 }
             } catch (error) {
-                resultDiv.className = 'result error';
-                resultDiv.textContent = 'Network error: ' + error.message;
+                comparisonDiv.innerHTML = `<div class="result error">Network error: ${error.message}</div>`;
             } finally {
                 generateBtn.disabled = false;
-                generateBtn.textContent = 'Generate Text';
+                compareBtn.disabled = false;
+                compareBtn.textContent = 'Compare Models';
             }
         });
+
+        // Load models on page load
+        loadModels();
     </script>
 </body>
 </html>
