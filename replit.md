@@ -1,13 +1,15 @@
-# Hybrid Llama-DeepSeek AI Model Project
+# Intelligent Research AI System
 
 ## Overview
-This project implements a hybrid AI model backend that supports both Llama and DeepSeek models with DeepSeek-V3 sampling techniques. It provides a comprehensive web interface for interacting with both models through a Flask application with model selection capabilities.
+A sophisticated AI research platform that seamlessly integrates Llama's conversational AI with DeepSeek's advanced research capabilities. This system provides an intelligent interface for natural conversations and deep analytical research, all powered by state-of-the-art language models.
 
 ## Project Architecture
-- **Main Script**: `hybrid_llama_deepseek.py` - Hybrid model manager with both Llama and DeepSeek models
-- **Web Interface**: `app.py` - Flask web server with multiple API endpoints
-- **Frontend**: `templates/index.html` - Interactive web interface with model selection
-- **Dependencies**: Python (transformers, torch, flask) and Node.js packages
+The entire system is organized within the `IntelligentResearch/` directory:
+- **backend.py**: Core AI engine managing both Llama and DeepSeek models
+- **app.py**: Flask API server providing RESTful endpoints
+- **index.html**: Modern, responsive web interface
+- **styles.css**: Professional UI styling with gradient themes
+- **script.js**: Interactive frontend logic with real-time chat
 
 ## Recent Changes (2025-09-08)
 - Set up Python 3.11 and Node.js 20 environments
