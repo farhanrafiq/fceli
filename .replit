@@ -15,15 +15,15 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Hybrid AI Model Server"
+args = "Intelligent Research AI"
 
 [[workflows.workflow]]
-name = "Hybrid AI Model Server"
+name = "Intelligent Research AI"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python app.py"
+args = "cd IntelligentResearch && python app.py"
 waitForPort = 5000
 
 [workflows.workflow.metadata]
