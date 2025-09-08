@@ -1,0 +1,168 @@
+You are upgrading the existing QUANTAFONS project to ship a full ChatGPT-style app using LOCAL models that already exist in our codebase: Llama and DeepSeek. Do not disturb current pages or styles. Add everything under a safe namespace qf-ai. If the stack is React/Next, create pages and components. If it is plain Flask/Express, create routes and templates. Preserve UI.
+
+OBJECTIVE
+Build a production-ready local AI chat with:
+1) Model adapters for local Llama and local DeepSeek
+2) A smart router that chooses the right model per message
+3) Tool use with JSON function calling
+4) Retrieval-augmented generation over our local docs
+5) Token-streaming to the frontend
+6) Multi-session chat memory with summarization
+7) Simple admin toggles and logs
+8) A clean chat UI at /chat that matches the current theme
+
+ASSUMPTIONS
+- We already have an ai file or module with Llama and DeepSeek locally. You must integrate with it first. If missing symbols, create adapters that call our local runners or fall back to ollama/llama-cpp if available.
+- Avoid global CSS overrides. Namespace new styles with qf-ai-.
+- Keep all new files in folders named qf-ai or under /components/qf-ai when using React.
+
+FILE MAP  create or update as needed
+backend/
+  qf-ai/
+    adapters/
+      llama_adapter.(py|ts)
+      deepseek_adapter.(py|ts)
+    router.(py|ts)
+    rag/
+      ingest.(py|ts)
+      store.(py|ts)          # FAISS or SQLite FTS fallback
+      retrieve.(py|ts)
+    tools/
+      web_get.(py|ts)        # safe HTTP GET with allowlist, timeout
+      math_eval.(py|ts)      # safe expression evaluator
+      time_now.(py|ts)
+      file_search.(py|ts)    # search in uploaded docs
+    memory/
+      db.(py|ts)             # SQLite
+      summarize.(py|ts)      # long-term summary using local model
+    api/
+      chat.(py|ts)           # SSE streaming endpoint
+      upload.(py|ts)         # PDF/TXT upload to RAG
+    config.(py|ts)
+frontend/
+  components/qf-ai/
+    ChatUI.(tsx|jsx)
+    Message.(tsx|jsx)
+    Toolbar.(tsx|jsx)
+    CitationFootnotes.(tsx|jsx)
+    FileDrop.(tsx|jsx)
+    Spinner.(tsx|jsx)
+  pages/chat.(tsx|jsx) or routes/chat
+  styles/qf-ai.css
+
+CONFIG
+- Create qf-ai config with:
+  modelDefaults: llama as default general model, deepseek for code
+  maxContextTokens, maxNewTokens, temperature, top_p, top_k
+  safety: blocked patterns, max output length
+  rag: chunkSize 800, overlap 120, topK 6, similarity threshold 0.25
+  router: rules for coding, math, logs, and long text drafting
+- Read overrides from .env if present. Never hard-fail when missing.
+
+MODEL ADAPTERS
+- llama_adapter: given messages[], stream tokens using our local ai file. Accept args: temperature, top_p, top_k, max_tokens, stop, seed
+- deepseek_adapter: same API. Prefer deepseek for code, reasoning-heavy math, and stack traces
+- Adapters must support JSON function calls. If model outputs a tool call object, emit a structured event to the toolrunner
+
+SMART ROUTER
+- Inspect the last user message plus short history
+- If it contains code fences, stack traces, or words like compile, syntax, bug, use deepseek
+- If it asks for prose, plans, business, research, use llama
+- Allow manual override by setting model: llama or model: deepseek in hidden metadata from the UI model selector
+
+FUNCTION CALLING  toolrunner
+- Contract
+  {
+    "tool_name": "math_eval" | "web_get" | "file_search" | "time_now",
+    "arguments": { ... }
+  }
+- Tools:
+  math_eval  evaluate safe arithmetic and basic numpy-like ops
+  web_get    GET only, 5 second timeout, allowlist domains loaded from qf-ai config
+  file_search  search chunks in RAG store, return top passages with ids and scores
+  time_now   return ISO timestamp
+- After a tool result, append a tool message to the conversation and let the same model finalize the answer with citations
+
+RAG PIPELINE
+- ingest: accept PDF, TXT, MD from /api/upload, extract text, split into chunks, embed, store
+- embeddings: prefer a small local embedding model. If none, use TF-IDF with scikit-learn. If FAISS not available, fallback to SQLite FTS5
+- retrieve: given a query and N, return passages with ids, source titles, and char spans
+- The chat endpoint should optionally call retrieve before first generation when user toggles Use Knowledge
+
+MEMORY
+- SQLite tables: sessions, messages, summaries, uploads, tool_logs
+- For each session, track token counts. When history exceeds the budget, summarize older turns with summarize.(py|ts) using the default model and store the summary as a system note
+- Provide a clear switch to disable memory per session
+
+API  streaming
+- Create /api/chat that accepts JSON
+  { sessionId, messages, model?, useTools?, useRag?, temperature?, top_p?, top_k?, max_tokens? }
+- Respond via Server Sent Events with events:
+  token, tool_call, tool_result, citation, done, error
+- On error, send a single error event then end the stream
+- Create /api/upload for RAG ingestion. Return file id and chunk counts
+
+FRONTEND  /chat
+- Chat UI with left main pane and right drawer
+- Features:
+  text input with Shift+Enter for newline, Enter sends
+  model picker llama or deepseek
+  toggles Use Tools and Use Knowledge
+  temperature slider 0.1 to 1.2
+  file drop area for PDFs or text files
+  streaming tokens with smooth scroll
+  markdown render with code highlighting and copy buttons
+  footnotes for citations from RAG or web_get
+  stop and regenerate buttons
+  new chat and sessions list with timestamps
+- Style using current tokens. Add only qf-ai.css and keep it minimal
+- Respect prefers-reduced-motion. Small fade-in on messages only
+
+SAFETY
+- Basic guardrails before generation:
+  refuse obvious malware requests and credential abuse
+  strip secrets from echoes
+  cap output to max tokens and stop sequences
+- Log tool calls and external HTTP attempts. Enforce domain allowlist on web_get
+
+TESTS  minimal
+- Unit tests for router, math_eval, retrieve
+- Integration test for /api/chat with a 3-turn conversation including one tool call and one RAG retrieval
+
+SAMPLE IMPLEMENTATION NOTES  TypeScript or Python
+- If Node/TS:
+  use express or next api routes
+  streaming via text/event-stream with flush
+  sqlite via better-sqlite3
+  FAISS optional, else sqlite FTS5
+- If Python:
+  use FastAPI + Uvicorn
+  streaming via EventSourceResponse
+  sqlite3 stdlib, faiss optional if available
+  pdfplumber or pypdf for PDFs
+- In both cases, isolate adapters so our existing ai file is the first import path. If symbols are present like generate or chat, call them directly
+
+PROMPT TEMPLATES  system prompts to prime models
+- Create system prompts:
+  general.txt  helpful, concise, cites sources when from tools
+  coding.txt   focused on runnable code, minimal prose, step-wise fixes
+- On each request, prepend the relevant system prompt
+
+LOGGING  and admin
+- Write short logs into qf-ai/logs with rotating files
+- Add /api/admin/health that returns model availability and rag counts
+
+DELIVERABLES
+- A working /chat route with full streaming chat, tool use, RAG, memory, router, and model picker
+- No changes to existing pages or styles
+- README-QF-AI.md with:
+  how to run locally
+  how to add more docs to RAG
+  how to add a new tool
+  how to switch default model
+- Commit message:
+  Add qf-ai local ChatGPT clone with Llama and DeepSeek, router, tools, RAG, memory, SSE
+
+SMOKE TESTS  run automatically after build
+1) Ask a coding question that triggers deepseek
+2) Ask a plann
