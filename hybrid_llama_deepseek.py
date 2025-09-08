@@ -3,7 +3,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
 
 # --- Load Llama model (Hugging Face style) ---
-llama_model_name = "meta-llama/Llama-2-7b-chat-hf"  # Change to your downloaded model
+llama_model_name = "microsoft/DialoGPT-medium"  # Using an open model for demonstration
 try:
     llama_tokenizer = AutoTokenizer.from_pretrained(llama_model_name)
     llama_model = AutoModelForCausalLM.from_pretrained(llama_model_name)
