@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.11"
 dependencies = [
+    "aiohttp>=3.12.15",
     "flask-cors>=6.0.1",
     "openai>=1.107.0",
 ]
