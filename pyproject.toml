@@ -6,7 +6,12 @@ requires-python = ">=3.11"
 dependencies = [
     "aiohttp>=3.12.15",
     "flask-cors>=6.0.1",
+    "gunicorn>=23.0.0",
     "openai>=1.107.0",
+    "pydantic>=2.11.7",
+    "python-multipart>=0.0.20",
+    "redis>=6.4.0",
+    "uvicorn[standard]>=0.35.0",
 ]
 
 [[tool.uv.index]]
