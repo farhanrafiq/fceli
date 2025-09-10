@@ -4,7 +4,7 @@ expertMode = true
 
 [nix]
 channel = "stable-25_05"
-packages = ["freetype", "lcms2", "libGL", "libGLU", "libimagequant", "libjpeg", "libtiff", "libwebp", "libxcrypt", "openjpeg", "tcl", "tk", "zlib", "mesa", "glib", "fontconfig", "xorg.libXext", "xorg.libXrender", "xorg.libXinerama", "xorg.libXi"]
+packages = ["fontconfig", "freetype", "glib", "lcms2", "libGL", "libGLU", "libimagequant", "libjpeg", "libtiff", "libwebp", "libxcrypt", "mesa", "openjpeg", "pkg-config", "tcl", "tk", "xorg.libXext", "xorg.libXi", "xorg.libXinerama", "xorg.libXrender", "xsimd", "zlib"]
 
 [workflows]
 runButton = "Project"
@@ -33,6 +33,14 @@ outputType = "webview"
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 33031
+externalPort = 3000
+
+[[ports]]
+localPort = 38395
+externalPort = 3001
 
 [deployment]
 deploymentTarget = "autoscale"
