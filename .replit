@@ -35,5 +35,6 @@ localPort = 5000
 externalPort = 80
 
 [deployment]
-deploymentTarget = "vm"
-run = ["bash", "-c", "cd IntelligentResearch && python app.py"]
+deploymentTarget = "autoscale"
+run = ["gunicorn", "--bind=0.0.0.0:5000", "--reuse-port", "-w", "2", "-c", "IntelligentResearch/gunicorn_config.py", "IntelligentResearch.run_production:run_production()"]
+build = ["uv", "pip", "install", "-r", "requirements.txt"]
